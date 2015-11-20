@@ -1,0 +1,56 @@
+
+main.cpp
+#include "stdio.h"
+#include "handlers.hpp"
+
+class Uart_Task : public scheduler_task
+
+{
+    private:
+
+    public:
+        Uart2& u2 = Uart2::getInstance();
+
+        char Rx[32]={0}; //Array for string received.
+
+        Uart_Task(uint8_t priority) : scheduler_task("Uart_Task", 2000, priority)
+        {//Do nothing
+        }
+        void Uart_Send(const char send_str[])
+        {
+            u2.putline(send_str); //send string trough Uart2
+        }
+        bool init(void)
+        {
+            u2.init(38400); //Initialize Uart2
+            return true;
+        }
+
+        bool run(void *p)
+        {
+            u2.gets(Rx,1000); //Receive string from Uart
+            printf("\n Received input: %s \n",Rx);
+            return true;
+        }
+};
+
+CMD_HANDLER_FUNC(HWuartHandler)
+{
+    Uart_Task Uart_Send_obj(PRIORITY_HIGH);
+    Uart_Send_obj.Uart_Send(cmdParams()); //Uart_Send function call.
+    return true;
+}
+
+
+int main(void)
+{
+scheduler_add_task(new Uart_Task(PRIORITY_CRITICAL)); // Uart Task for HW3
+}
+
+terminal.cpp
+cp.addHandler(HWuartHandler,   "Uart_Task", "Send text to other board");
+
+handlers.hpp
+/// Handler for Uart Task
+CMD_HANDLER_FUNC(HWuartHandler);
+
