@@ -1,0 +1,147 @@
+//SW board:
+Main.cpp
+#include "eint.h"
+#include "io.hpp"
+#include "GPIO.hpp"
+int flag;
+//Hw 2
+void switch_edge()
+{
+    flag =1;
+}
+class hw_task : public scheduler_task
+{
+private:
+            GPIO p2_wire5;
+public:
+            hw_task(uint8_t priority) :
+            scheduler_task("hw_task", 2000, priority),
+            p2_wire5(LPC1758_GPIO_Type::P2_5)
+            {
+            /* Nothing to init */
+            }
+            bool init(void)
+            {
+                const uint8_t port2_1 = 1;
+                eint3_enable_port2(port2_1, eint_rising_edge,switch_edge);
+                p2_wire5.setAsOutput();
+              //  p2_wire5.setLow();
+                return true;
+            }
+            bool run(void *p)
+            {
+                vTaskDelay(50);
+                if (flag)
+                        {
+                        // toggle p2.0
+                        p2_wire5.toggle();
+                        vTaskDelay(500);
+                        p2_wire5.setLow();
+                        flag=0;// this will stop the toggling at p2_5
+                          }
+            return true;
+            }
+};
+int main(void)
+{
+   scheduler_add_task(new hw_task(PRIORITY_CRITICAL)); //Hw Task
+ 
+//LED board:
+main.cpp file
+LED toggle without using interrupt as per the input at P2.1
+#include "eint.h"
+#include "GPIO.hpp"
+#include "LED.hpp"
+ 
+class HW2Task : public scheduler_task
+{
+    private:
+        GPIO p2_wire0;
+        GPIO p2_wire1;
+    public:
+        HW2Task(uint8_t priority) : scheduler_task("HW2", 2000, priority),
+        p2_wire0(LPC1758_GPIO_Type::P2_0),
+        p2_wire1(LPC1758_GPIO_Type::P2_1)
+        {
+            /* Nothing to init */
+        }
+ 
+        bool init(void)
+        {
+            const uint8_t port2_1 = 1;
+            p2_wire0.setAsOutput();
+            p2_wire1.setAsInput();
+            return true;
+        }
+ 
+        bool run(void *p)
+        {
+            if (p2_wire1.read())
+            {
+                 p2_wire0.setHigh();//external interfaced LED on Port 2.0
+                 LE.on(1);//to use onboard LED
+            }
+            else
+            {
+                p2_wire0.setLow();
+                LE.off(1);
+            }
+            return true;
+        }
+};
+int main(void)
+{ //HW2
+    scheduler_add_task(new HW2Task(PRIORITY_HIGH));
+Alternative code using interrupt:
+LED toggle using interrupt
+//HW2
+#include "eint.h"
+#include "GPIO.hpp"
+#include "LED.hpp"
+//HW2 LED toggle after interrupt on Port 2.0
+int flag = 0;
+void switch_edge()
+{
+    flag = 1;
+}
+void switch_edge0()
+{
+    flag = 0;
+}
+class HW2Task : public scheduler_task
+{
+    private:
+        GPIO p2_wire0;
+    public:
+        HW2Task(uint8_t priority) : scheduler_task("HW2", 2000, priority),
+        p2_wire0(LPC1758_GPIO_Type::P2_0)
+        {
+            /* Nothing to init */
+        }
+        bool init(void)
+        {
+            const uint8_t port2_1 = 1;
+            eint3_enable_port2(port2_1, eint_rising_edge, switch_edge);
+            eint3_enable_port2(port2_1, eint_falling_edge, switch_edge0);
+            p2_wire0.setAsOutput();
+            return true;
+        }
+        bool run(void *p)
+        {
+            if (flag)
+            {
+                p2_wire0.setHigh();//external interfaced LED on Port 2.0
+                LE.on(1);//to use onboard LED
+            }
+            else
+            {
+                p2_wire0.setLow();
+                LE.off(1);
+            }
+            return true;
+        }
+};
+int main(void)
+{ //HW2
+    scheduler_add_task(new HW2Task(PRIORITY_HIGH));
+
